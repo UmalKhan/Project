@@ -22,6 +22,7 @@ struct Vertex {
     Vertex* next;
     int distance;
     bool visited;
+    int green_time;
 
     Vertex(char i) {
         id = i;
@@ -85,10 +86,11 @@ struct Graph {
         return nullptr;
     }
 
+
     void print_graph() {
         Vertex* temp = vertices;
         while (temp) {
-            cout << "Vertex " << temp->id << ":";
+            cout << "Vertex " << temp->id << "(Time: " << temp->green_time << ") "<< ":";
             Node* adj = temp->adj_list;
             while (adj) {
                 cout << " -> " << adj->id << "(" << adj->weight << ")";
@@ -97,6 +99,14 @@ struct Graph {
             cout << endl;
             temp = temp->next;
         }
+    }
+
+    void set_time(char id, int greenTime) {
+        Vertex* vertex = find_vertex(id);
+        if (vertex)
+            vertex->green_time = greenTime;
+        else
+            cout << "Vertex " << id << " not found!\n";
     }
 
     void dijkstra(char source) {
@@ -166,6 +176,32 @@ struct Graph {
     }
 };
 
+void read_signals(Graph& graph, const string& filename) {
+    ifstream file(filename);
+    if (!file.is_open()) {
+        cout << "Error opening file: " << filename << endl;
+        return;
+    }
+
+    string line, intersection;
+    int greenTime;
+
+    getline(file, line);
+
+    while (getline(file, line)) {
+        stringstream ss(line);
+        getline(ss, intersection, ',');
+        ss >> greenTime;
+
+        if (!intersection.empty()) {
+            graph.set_time(intersection[0], greenTime);
+        }
+    }
+
+    file.close();
+}
+
+
 void read_file(Graph& g, const string& filename) {
     ifstream file(filename);
     string line, intersection1, intersection2;
@@ -189,9 +225,10 @@ int main() {
     Graph g;
 
     read_file(g, "road_network.csv");
+    read_signals(g, "traffic_signals.csv");
     g.print_graph();
 
-    g.dijkstra('X');
+    // g.dijkstra('X');
 
     return 0;
 }
