@@ -9,11 +9,11 @@ struct Node {
     int weight;
     Node* next;
 
-    Node(char i, int w, Node* n) {
+    Node(char i, int w) {
         id = i;
         weight = w;
-        next = n;
-    }
+        next = nullptr;
+    } 
 };
 
 struct Vertex {
@@ -23,6 +23,7 @@ struct Vertex {
     int distance;
     bool visited;
     int green_time;
+    Vertex* predecessor;
 
     Vertex(char i) {
         id = i;
@@ -30,17 +31,35 @@ struct Vertex {
         next = nullptr;
         distance = INT_MAX;
         visited = false;
+        predecessor = nullptr;
     }
 };
 
+struct Vehicle {
+    string id;
+    char start;
+    char end;
+    Vehicle* next;
+
+    Vehicle(string vid, char s, char e) {
+        id = vid;
+        start = s;
+        end = e;
+        next = nullptr;
+    }
+};
+
+
 struct Graph {
     Vertex* vertices;
+    Vehicle* vehicles;
 
     Graph() {
+        vehicles = nullptr;
         vertices = nullptr;
     }
 
-    void addVertex(char id) {
+    void add_vertex(char id) {
         if (!vertex_exists(id)) {
             Vertex* new_vertex = new Vertex(id);
             Vertex* temp = vertices;
@@ -51,6 +70,18 @@ struct Graph {
                     temp = temp->next;
                 temp->next = new_vertex;
             }
+        }
+    }
+
+    void add_vehicle(string id, char start, char end) {
+        Vehicle* new_vehicle = new Vehicle(id, start, end);
+        Vehicle* temp = vehicles;
+        if (!temp)
+            vehicles = new_vehicle;
+        else {
+            while(temp->next)
+                temp = temp->next;
+            temp->next = new_vehicle;
         }
     }
 
@@ -65,13 +96,20 @@ struct Graph {
     }
 
     void add_edge(char src, char dest, int weight) {
-        addVertex(src);
-        addVertex(dest);
+        add_vertex(src);
+        add_vertex(dest);
 
         Vertex* src_vertex = find_vertex(src);
         if (src_vertex) {
-            Node* new_node = new Node(dest, weight, src_vertex->adj_list);
-            src_vertex->adj_list = new_node;
+            Node* new_node = new Node(dest, weight);
+            Node* temp = src_vertex->adj_list;
+            if (!temp)
+                src_vertex->adj_list = new_node;
+            else {
+                while(temp->next)
+                    temp = temp->next;
+                temp->next = new_node;
+            }
         }
     }
 
@@ -86,11 +124,18 @@ struct Graph {
         return nullptr;
     }
 
+    void print_vehicles() {
+        Vehicle* temp = vehicles;
+        while (temp) {
+            cout << temp->id << " from " << temp->start << " to " << temp->end << endl;
+            temp = temp->next;
+        }
+    }
 
     void print_graph() {
         Vertex* temp = vertices;
         while (temp) {
-            cout << "Vertex " << temp->id << "(Time: " << temp->green_time << ") "<< ":";
+            cout << temp->id << " (" << temp->green_time << "s) "<< ":";
             Node* adj = temp->adj_list;
             while (adj) {
                 cout << " -> " << adj->id << "(" << adj->weight << ")";
@@ -109,8 +154,23 @@ struct Graph {
             cout << "Vertex " << id << " not found!\n";
     }
 
-    void dijkstra(char source) {
-        Vertex* src_vertex = find_vertex(source);
+    void print_path(Vertex* dest_vertex) {
+        if (!dest_vertex) 
+            return;
+        print_path(dest_vertex->predecessor);
+        cout << dest_vertex->id << " ";
+    }
+
+
+    void dijkstra(char source, char dest) {
+        Vertex* temp = vertices;
+        while (temp) {
+            temp->distance = INT_MAX;
+            temp->visited = false;
+            temp->predecessor = nullptr;
+            temp = temp->next;
+        }
+       Vertex* src_vertex = find_vertex(source);
         if (!src_vertex) {
             cout << "Source vertex not found!" << endl;
             return;
@@ -122,17 +182,15 @@ struct Graph {
             Vertex* current = nullptr;
             Vertex* temp = vertices;
             while (temp) {
-                if (!temp->visited && (current == nullptr || temp->distance < current->distance)) {
+                if (!temp->visited && (current == nullptr || temp->distance < current->distance))
                     current = temp;
-                }
                 temp = temp->next;
             }
 
-            if (!current || current->distance == INT_MAX) 
+            if (!current || current->distance == INT_MAX)
                 break;
 
             current->visited = true;
-
             Node* adj = current->adj_list;
             while (adj) {
                 Vertex* neighbor = find_vertex(adj->id);
@@ -140,24 +198,84 @@ struct Graph {
                     int new_dist = current->distance + adj->weight;
                     if (new_dist < neighbor->distance) {
                         neighbor->distance = new_dist;
+                        neighbor->predecessor = current;
                     }
                 }
                 adj = adj->next;
             }
         }
 
-        cout << "Shortest distances from vertex " << source << ":\n";
-        Vertex* temp = vertices;
+        Vertex* dest_vertex = find_vertex(dest);
+        if (!dest_vertex || dest_vertex->distance == INT_MAX) {
+            cout << "No path found from " << source << " to " << dest << endl;
+            return;
+        }
+
+        cout << "Shortest distance from " << source << " to " << dest << ": " << dest_vertex->distance << endl;
+        cout << "Path: ";
+        print_path(dest_vertex);
+        cout << endl;
+    }
+
+    void find_path_for_all() {
+        Vehicle* temp = vehicles;
         while (temp) {
-            cout << "To " << temp->id << ": ";
-            if (temp->distance == INT_MAX) {
-                cout << "INF\n";
-            } else {
-                cout << temp->distance << "\n";
-            }
+            cout << temp->id << " ";
+            dijkstra(temp->start, temp->end);
             temp = temp->next;
+            cout << endl;
         }
     }
+
+    // void dijkstra(char source) {
+    //     Vertex* src_vertex = find_vertex(source);
+    //     if (!src_vertex) {
+    //         cout << "Source vertex not found!" << endl;
+    //         return;
+    //     }
+
+    //     src_vertex->distance = 0;
+
+    //     while (true) {
+    //         Vertex* current = nullptr;
+    //         Vertex* temp = vertices;
+    //         while (temp) {
+    //             if (!temp->visited && (current == nullptr || temp->distance < current->distance)) {
+    //                 current = temp;
+    //             }
+    //             temp = temp->next;
+    //         }
+
+    //         if (!current || current->distance == INT_MAX) 
+    //             break;
+
+    //         current->visited = true;
+
+    //         Node* adj = current->adj_list;
+    //         while (adj) {
+    //             Vertex* neighbor = find_vertex(adj->id);
+    //             if (neighbor && !neighbor->visited) {
+    //                 int new_dist = current->distance + adj->weight;
+    //                 if (new_dist < neighbor->distance) {
+    //                     neighbor->distance = new_dist;
+    //                 }
+    //             }
+    //             adj = adj->next;
+    //         }
+    //     }
+
+    //     cout << "Shortest distances from vertex " << source << ":\n";
+    //     Vertex* temp = vertices;
+    //     while (temp) {
+    //         cout << "To " << temp->id << ": ";
+    //         if (temp->distance == INT_MAX) {
+    //             cout << "INF\n";
+    //         } else {
+    //             cout << temp->distance << "\n";
+    //         }
+    //         temp = temp->next;
+    //     }
+    // }
 
 
     ~Graph() {
@@ -169,12 +287,44 @@ struct Graph {
                 adj = adj->next;
                 delete toDelete;
             }
-            Vertex* toDelete = temp;
+            Vertex* to_delete = temp;
             temp = temp->next;
-            delete toDelete;
+            delete to_delete;
+        }
+        Vehicle* temp_v = vehicles;
+        while(temp) {
+            Vertex* to_delete = temp;
+            temp = temp->next;
+            delete to_delete;
         }
     }
 };
+
+void read_vehicles(Graph& graph, const string& filename) {
+    ifstream file(filename);
+    if (!file.is_open()) {
+        cout << "Error opening file: " << filename << endl;
+        return;
+    }
+
+    string line, vehicleID;
+    char startIntersection, endIntersection;
+
+    getline(file, line);
+
+    while (getline(file, line)) {
+        stringstream ss(line);
+
+        getline(ss, vehicleID, ',');
+        ss >> startIntersection; ss.ignore(1, ',');
+        ss >> endIntersection;
+
+        graph.add_vehicle(vehicleID, startIntersection, endIntersection);
+    }
+
+    file.close();
+}
+
 
 void read_signals(Graph& graph, const string& filename) {
     ifstream file(filename);
@@ -226,9 +376,12 @@ int main() {
 
     read_file(g, "road_network.csv");
     read_signals(g, "traffic_signals.csv");
-    g.print_graph();
+    read_vehicles(g, "vehicles.csv");
+    // g.print_graph();
+    // g.print_vehicles();
+    // g.dijkstra('A', 'F');
 
-    // g.dijkstra('X');
+    g.find_path_for_all();
 
     return 0;
 }
