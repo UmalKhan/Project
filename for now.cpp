@@ -16,25 +16,6 @@ struct Node {
     } 
 };
 
-struct Vertex {
-    char id;
-    Node* adj_list;
-    Vertex* next;
-    int distance;
-    bool visited;
-    int green_time;
-    Vertex* predecessor;
-
-    Vertex(char i) {
-        id = i;
-        adj_list = nullptr;
-        next = nullptr;
-        distance = INT_MAX;
-        visited = false;
-        predecessor = nullptr;
-    }
-};
-
 struct Vehicle {
     string id;
     char start;
@@ -49,14 +30,97 @@ struct Vehicle {
     }
 };
 
+struct Vertex {
+    char id;
+    Node* adj_list;
+    Vertex* next;
+    int distance;
+    bool visited;
+    int green_time;
+    Vertex* predecessor;
+    Vehicle* vehicles_in;
+    int total_vehicles;
+
+    Vertex(char i) {
+        id = i;
+        adj_list = nullptr;
+        next = nullptr;
+        distance = INT_MAX;
+        visited = false;
+        predecessor = nullptr;
+        vehicles_in = nullptr;
+        total_vehicles = 0;
+    }
+
+    Vertex(Vertex* to_copy) {
+        id = to_copy->id;
+        adj_list = to_copy->adj_list;
+        distance = to_copy->distance;
+        visited = to_copy->visited;
+        predecessor = to_copy->predecessor;
+        vehicles_in = to_copy->vehicles_in;
+        total_vehicles = to_copy->total_vehicles;
+        next = nullptr;
+    }
+
+    void add_vehicle(string id, char start, char end) {
+        Vehicle* add_v = new Vehicle (id, start, end);
+        Vehicle* temp = vehicles_in;
+        if (!temp) 
+            vehicles_in = add_v;
+        else {
+            while (temp->next)
+                temp = temp->next;
+            temp->next = add_v;
+        }
+        ++total_vehicles;
+    }
+
+    // ~Vertex () {
+    //     Vehicle* delete_v;
+    //     while (delete_v) {
+    //         Vehicle* to_delete = delete_v;
+    //         delete_v = delete_v->next;
+    //         delete to_delete;
+    //     }
+    // }
+};
+
+struct queue {
+    Vertex* vertices;
+    Vertex* head;
+    Vertex* tail;
+
+    queue() {
+        head = nullptr;
+    }
+    void enqueue(Vertex* vertex_add) {
+        Vertex* new_vertex = new Vertex(vertex_add);
+        if (!head) {
+            head = new_vertex;
+            tail = new_vertex;
+        }
+        else {
+            tail->next = new_vertex;
+            tail = new_vertex;
+        }
+    }
+    void dequeue() {
+        Vertex* to_deq = head;
+        head = to_deq->next;
+        delete to_deq;
+    }
+};
 
 struct Graph {
     Vertex* vertices;
     Vehicle* vehicles;
+    int total_vertices;
 
     Graph() {
         vehicles = nullptr;
         vertices = nullptr;
+        total_vertices = 0;
     }
 
     void add_vertex(char id) {
@@ -70,6 +134,7 @@ struct Graph {
                     temp = temp->next;
                 temp->next = new_vertex;
             }
+            ++total_vertices;
         }
     }
 
@@ -83,6 +148,8 @@ struct Graph {
                 temp = temp->next;
             temp->next = new_vehicle;
         }
+        Vertex* src = find_vertex(start);
+        src->add_vehicle(id, start, end);
     }
 
     bool vertex_exists(char id) {
@@ -135,13 +202,20 @@ struct Graph {
     void print_graph() {
         Vertex* temp = vertices;
         while (temp) {
-            cout << temp->id << " (" << temp->green_time << "s) "<< ":";
+            cout << temp->id;;
             Node* adj = temp->adj_list;
             while (adj) {
                 cout << " -> " << adj->id << "(" << adj->weight << ")";
                 adj = adj->next;
             }
             cout << endl;
+            cout << "Vehicles at this vertex: ";
+            Vehicle* vertex_v = temp->vehicles_in;
+            while (vertex_v) {
+                cout << vertex_v->id << " ";
+                vertex_v = vertex_v->next;
+            }
+            cout << endl << "Green time: " << temp->green_time << endl;
             temp = temp->next;
         }
     }
@@ -381,7 +455,7 @@ int main() {
     // g.print_vehicles();
     // g.dijkstra('A', 'F');
 
-    g.find_path_for_all();
+    // g.find_path_for_all();
 
     return 0;
 }
