@@ -16,6 +16,24 @@ struct Node {
     } 
 };
 
+struct Edge {
+    char src;
+    char dest;
+    int weight;
+
+    Edge() {
+        src = ' ';
+        dest = ' ';
+        weight = 0;
+    }
+
+    Edge(char s, char d, int w) {
+        src = s;
+        dest = d;
+        weight = w;
+    }
+};
+
 struct Vehicle {
     string id;
     char start;
@@ -60,6 +78,7 @@ struct Vertex {
         predecessor = to_copy->predecessor;
         vehicles_in = to_copy->vehicles_in;
         total_vehicles = to_copy->total_vehicles;
+        green_time = to_copy->green_time;
         next = nullptr;
     }
 
@@ -75,40 +94,89 @@ struct Vertex {
         }
         ++total_vehicles;
     }
-
-    // ~Vertex () {
-    //     Vehicle* delete_v;
-    //     while (delete_v) {
-    //         Vehicle* to_delete = delete_v;
-    //         delete_v = delete_v->next;
-    //         delete to_delete;
-    //     }
-    // }
 };
 
 struct queue {
-    Vertex* vertices;
     Vertex* head;
     Vertex* tail;
+    int max;
 
     queue() {
         head = nullptr;
+        max = 0;
     }
     void enqueue(Vertex* vertex_add) {
         Vertex* new_vertex = new Vertex(vertex_add);
         if (!head) {
-            head = new_vertex;
+            head = new_vertex;    
             tail = new_vertex;
+            max = new_vertex->total_vehicles;
         }
         else {
-            tail->next = new_vertex;
-            tail = new_vertex;
+            if (new_vertex->total_vehicles > max) {
+                new_vertex->next = head;
+                head = new_vertex;
+                max = new_vertex->total_vehicles;
+            }
+            else {
+                tail->next = new_vertex;
+                tail = new_vertex;
+            }
         }
     }
-    void dequeue() {
-        Vertex* to_deq = head;
+    void check() {                                      // change (i think only decrease) should depend on agr v less vehicles? for "less waiting time" for other intersections?
+        Vertex* temp = head;
+        max = head->total_vehicles;
+        while(temp) {
+            if (temp->total_vehicles > max) {
+                temp->next = head;
+                head = temp;
+                max = temp->total_vehicles;
+            }
+        }
+    }
+    void dequeue() {                                    // is ki call depends on our actual time? depends on hm simulate kesay kr rhe hain.
+        Vertex* to_deq = head;                          // if it is actual time so we only have to consider front/head of queue ka time.
         head = to_deq->next;
         delete to_deq;
+        check();
+    }
+    void print_queue() {
+        Vertex* temp = head;
+        while (temp) {
+            cout << temp->id << ": " << temp->green_time << "s" << " " << temp->total_vehicles << endl;
+            temp = temp->next;
+        }
+    }
+};
+
+struct hash_table {
+    Edge edges[50];
+    bool exists[50];
+    
+    hash_table() {
+        for (int i = 0; i < 50; i++) {
+            exists[i] = false;
+        }
+    }
+    int get_hash(Edge hash_val) {
+        return (hash_val.src + hash_val.dest) % 50;
+    }
+    void insert_edge(Edge to_add) {
+        int hash_key = get_hash(to_add);
+        int start = hash_key;
+        while(exists[hash_key]) {
+            hash_key = (hash_key + 1) % 50;
+            if (hash_key == start)
+                return;
+        }
+        edges[hash_key] = to_add;
+        exists[hash_key] = true;
+    }
+    void print_table() {
+        for (int i = 0; i < 50; i++) {
+            cout << i << ": " << edges[i].src << " " << edges[i].dest << endl;
+        }
     }
 };
 
@@ -116,6 +184,8 @@ struct Graph {
     Vertex* vertices;
     Vehicle* vehicles;
     int total_vertices;
+    queue green_queue;
+    hash_table table;
 
     Graph() {
         vehicles = nullptr;
@@ -177,6 +247,16 @@ struct Graph {
                     temp = temp->next;
                 temp->next = new_node;
             }
+        }
+        Edge add_edge(src, dest, weight);
+        table.insert_edge(add_edge);
+    }
+
+    void initialize_queue() {
+        Vertex* temp = vertices;
+        while(temp) {
+            green_queue.enqueue(temp);
+            temp = temp->next;
         }
     }
 
@@ -456,6 +536,8 @@ int main() {
     // g.dijkstra('A', 'F');
 
     // g.find_path_for_all();
-
+    // g.initialize_queue();
+    // g.green_queue.print_queue();
+    g.table.print_table();
     return 0;
 }
