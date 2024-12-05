@@ -21,11 +21,14 @@ struct Edge {
     char dest;
     int weight;
     Edge* next;
+    int count;
 
     Edge() {
+        count = 0;
         next = nullptr;
     }
     Edge(char s, char d, int w) {
+        count = 0;
         src = s;
         dest = d;
         weight = w;
@@ -56,6 +59,17 @@ struct Vehicle {
                 temp = temp->next;
             temp->next = path_add;
         }
+    }
+    bool remove_first_path(char id) {
+        if (path) {
+            if (path->src == id) {
+                Edge* temp = path;
+                path = temp->next;
+                delete temp;
+                return true;
+            }
+        }
+        return false;
     }
 };
 
@@ -135,22 +149,35 @@ struct queue {
             }
         }
     }
-    void check() {                                      // change (i think only decrease) should depend on agr v less vehicles? for "less waiting time" for other intersections?
-        Vertex* temp = head;
-        max = head->total_vehicles;
-        while(temp) {
-            if (temp->total_vehicles > max) {
-                temp->next = head;
-                head = temp;
-                max = temp->total_vehicles;
-            }
-        }
+
+    // change (i think only decrease) should depend on agr v less vehicles? for "less waiting time" for other intersections?
+    void check() {
+        cout << "check shuru" << endl;
+        print_queue();
+        // Vertex* temp = head;
+        // max = head->total_vehicles;
+        // while(temp) {
+        //     if (temp->total_vehicles > max) {
+        //         temp->next = head;
+        //         head = temp;
+        //         max = head->total_vehicles;
+        //     }
+        //     temp = temp->next;
+        // }
+        cout << "check" << endl;
     }
-    void dequeue() {                                    // is ki call depends on our actual time? depends on hm simulate kesay kr rhe hain.
-        Vertex* to_deq = head;                          // if it is actual time so we only have to consider front/head of queue ka time.
-        head = to_deq->next;
-        delete to_deq;
-        check();
+
+    // is ki call depends on our actual time? depends on hm simulate kesay kr rhe hain.
+    // if it is actual time so we only have to consider front/head of queue ka time.
+    // remove pehla path/edge of all- no. vehicles with that vertex as source. hmm.
+    Vertex* dequeue() {   
+        if (head) {
+            Vertex* to_deq = head;                         
+            head = to_deq->next;
+            // check();
+            return to_deq;
+        }   
+        return nullptr;                              
     }
     void print_queue() {
         Vertex* temp = head;
@@ -163,10 +190,12 @@ struct queue {
 
 struct hash_table {
     Edge* edges[41];
+    int count[41];
     bool exists[41];
     
     hash_table() {
         for (int i = 0; i < 41; i++) {
+            count[i] = 0;
             exists[i] = false;
         }
     }
@@ -187,6 +216,11 @@ struct hash_table {
     Edge* find_edge(char src, char dest) {
         int key = get_hash(src, dest);
         return edges[key];
+    }
+    void add_veh_to_edge(Edge* edge_to_add) {
+        int index = get_hash(edge_to_add->src, edge_to_add->dest);
+        ++count[index];
+
     }
     void print_table() {
         for (int i = 0; i < 41; i++) {
@@ -397,10 +431,9 @@ struct Graph {
         }
 
         reverse_vehicle_path(veh);
-
+        table.add_veh_to_edge(veh->path);
         print_vehicle_path(veh);
     }
-
     void reverse_vehicle_path(Vehicle* veh) {
         Edge* prev = nullptr;
         Edge* current = veh->path;
@@ -415,7 +448,6 @@ struct Graph {
 
         veh->path = prev;
     }
-
     void print_vehicle_path(Vehicle* veh) {
         Edge* current = veh->path;
         while (current) {
@@ -425,8 +457,6 @@ struct Graph {
         }
         cout << endl;
     }
-
-
     void find_path_for_all() {
         Vehicle* temp = vehicles;
         while (temp) {
@@ -434,6 +464,16 @@ struct Graph {
             dijkstra(temp->start, temp->end, temp);
             temp = temp->next;
             cout << endl;
+        }
+    }
+    void green_light() {
+        Vehicle* current = vehicles;
+        Vertex* removed = green_queue.dequeue();
+        while(current) {
+            if (current->remove_first_path(removed->id))
+                if (current->path)
+                    cout << current->id << " ka new path starting from " << current->path->src << " " << current->path->dest << endl;
+            current = current->next;
         }
     }
 
@@ -597,8 +637,9 @@ int main() {
     // g.dijkstra('A', 'F');
 
     g.find_path_for_all();
-    // g.initialize_queue();
+    g.initialize_queue();
     // g.green_queue.print_queue();
     // g.table.print_table();
+    g.green_light();
     return 0;
 }
