@@ -20,17 +20,16 @@ struct Edge {
     char src;
     char dest;
     int weight;
+    Edge* next;
 
     Edge() {
-        src = ' ';
-        dest = ' ';
-        weight = 0;
+        next = nullptr;
     }
-
     Edge(char s, char d, int w) {
         src = s;
         dest = d;
         weight = w;
+        next = nullptr;
     }
 };
 
@@ -39,12 +38,24 @@ struct Vehicle {
     char start;
     char end;
     Vehicle* next;
+    Edge* path;
 
     Vehicle(string vid, char s, char e) {
         id = vid;
         start = s;
         end = e;
         next = nullptr;
+        path = nullptr;
+    }
+    void add_path(Edge* path_add) {
+        Edge* temp = path;
+        if (!temp)
+            path = path_add;
+        else {
+            while(temp->next)
+                temp = temp->next;
+            temp->next = path_add;
+        }
     }
 };
 
@@ -82,8 +93,8 @@ struct Vertex {
         next = nullptr;
     }
 
-    void add_vehicle(string id, char start, char end) {
-        Vehicle* add_v = new Vehicle (id, start, end);
+    void add_vehicle(string i, char start, char end) {
+        Vehicle* add_v = new Vehicle (i, start, end);
         Vehicle* temp = vehicles_in;
         if (!temp) 
             vehicles_in = add_v;
@@ -151,31 +162,35 @@ struct queue {
 };
 
 struct hash_table {
-    Edge edges[50];
-    bool exists[50];
+    Edge* edges[41];
+    bool exists[41];
     
     hash_table() {
-        for (int i = 0; i < 50; i++) {
+        for (int i = 0; i < 41; i++) {
             exists[i] = false;
         }
     }
-    int get_hash(Edge hash_val) {
-        return (hash_val.src + hash_val.dest) % 50;
+    int get_hash(char src, char dest) {
+        return (src * 31 + dest) % 41;
     }
-    void insert_edge(Edge to_add) {
-        int hash_key = get_hash(to_add);
+    void insert_edge(Edge* to_add) {
+        int hash_key = get_hash(to_add->src, to_add->dest);
         int start = hash_key;
         while(exists[hash_key]) {
-            hash_key = (hash_key + 1) % 50;
+            hash_key = (hash_key + 1) % 41;
             if (hash_key == start)
                 return;
         }
         edges[hash_key] = to_add;
         exists[hash_key] = true;
     }
+    Edge* find_edge(char src, char dest) {
+        int key = get_hash(src, dest);
+        return edges[key];
+    }
     void print_table() {
-        for (int i = 0; i < 50; i++) {
-            cout << i << ": " << edges[i].src << " " << edges[i].dest << endl;
+        for (int i = 0; i < 41; i++) {
+            cout << i << ": " << edges[i]->src << " " << edges[i]->dest << endl;
         }
     }
 };
@@ -248,7 +263,7 @@ struct Graph {
                 temp->next = new_node;
             }
         }
-        Edge add_edge(src, dest, weight);
+        Edge* add_edge = new Edge(src, dest, weight);
         table.insert_edge(add_edge);
     }
 
@@ -308,15 +323,18 @@ struct Graph {
             cout << "Vertex " << id << " not found!\n";
     }
 
-    void print_path(Vertex* dest_vertex) {
-        if (!dest_vertex) 
+    void print_path(Vertex* dest_vertex, Vehicle* veh) {
+        if (!dest_vertex->predecessor) {
+            cout << dest_vertex->id << " ";
             return;
-        print_path(dest_vertex->predecessor);
+        }
+        print_path(dest_vertex->predecessor, veh);
         cout << dest_vertex->id << " ";
+        Edge* add_path = table.find_edge(dest_vertex->id, dest_vertex->predecessor->id);
+        veh->add_path(add_path);
     }
 
-
-    void dijkstra(char source, char dest) {
+    void dijkstra(char source, char dest, Vehicle* veh) {
         Vertex* temp = vertices;
         while (temp) {
             temp->distance = INT_MAX;
@@ -324,7 +342,8 @@ struct Graph {
             temp->predecessor = nullptr;
             temp = temp->next;
         }
-       Vertex* src_vertex = find_vertex(source);
+
+        Vertex* src_vertex = find_vertex(source);
         if (!src_vertex) {
             cout << "Source vertex not found!" << endl;
             return;
@@ -334,7 +353,7 @@ struct Graph {
 
         while (true) {
             Vertex* current = nullptr;
-            Vertex* temp = vertices;
+            temp = vertices;
             while (temp) {
                 if (!temp->visited && (current == nullptr || temp->distance < current->distance))
                     current = temp;
@@ -366,16 +385,53 @@ struct Graph {
         }
 
         cout << "Shortest distance from " << source << " to " << dest << ": " << dest_vertex->distance << endl;
+
         cout << "Path: ";
-        print_path(dest_vertex);
+        Vertex* current = dest_vertex;
+        while (current && current->predecessor) {
+            Edge* edge = table.find_edge(current->predecessor->id, current->id);
+            if (edge) {
+                veh->add_path(new Edge(edge->src, edge->dest, edge->weight));
+            }
+            current = current->predecessor;
+        }
+
+        reverse_vehicle_path(veh);
+
+        print_vehicle_path(veh);
+    }
+
+    void reverse_vehicle_path(Vehicle* veh) {
+        Edge* prev = nullptr;
+        Edge* current = veh->path;
+        Edge* next = nullptr;
+
+        while (current) {
+            next = current->next;
+            current->next = prev;
+            prev = current;
+            current = next;
+        }
+
+        veh->path = prev;
+    }
+
+    void print_vehicle_path(Vehicle* veh) {
+        Edge* current = veh->path;
+        while (current) {
+            cout << current->src << " -> " << current->dest << " (" << current->weight << ")";
+            if (current->next) cout << " -> ";
+            current = current->next;
+        }
         cout << endl;
     }
+
 
     void find_path_for_all() {
         Vehicle* temp = vehicles;
         while (temp) {
             cout << temp->id << " ";
-            dijkstra(temp->start, temp->end);
+            dijkstra(temp->start, temp->end, temp);
             temp = temp->next;
             cout << endl;
         }
@@ -445,7 +501,7 @@ struct Graph {
             temp = temp->next;
             delete to_delete;
         }
-        Vehicle* temp_v = vehicles;
+        // Vehicle* temp_v = vehicles;
         while(temp) {
             Vertex* to_delete = temp;
             temp = temp->next;
@@ -508,6 +564,11 @@ void read_signals(Graph& graph, const string& filename) {
 
 void read_file(Graph& g, const string& filename) {
     ifstream file(filename);
+    if (!file.is_open()) {
+        cout << "Error opening file: " << filename << endl;
+        return;
+    }
+
     string line, intersection1, intersection2;
     int travelTime;
 
@@ -528,16 +589,16 @@ void read_file(Graph& g, const string& filename) {
 int main() {
     Graph g;
 
-    read_file(g, "road_network.csv");
-    read_signals(g, "traffic_signals.csv");
-    read_vehicles(g, "vehicles.csv");
+    read_file(g, "C:/Users/hp/Desktop/uni sht/data struct/project/Project/road_network.csv");
+    read_signals(g, "C:/Users/hp/Desktop/uni sht/data struct/project/Project/traffic_signals.csv");
+    read_vehicles(g, "C:/Users/hp/Desktop/uni sht/data struct/project/Project/vehicles.csv");
     // g.print_graph();
     // g.print_vehicles();
     // g.dijkstra('A', 'F');
 
-    // g.find_path_for_all();
+    g.find_path_for_all();
     // g.initialize_queue();
     // g.green_queue.print_queue();
-    g.table.print_table();
+    // g.table.print_table();
     return 0;
 }
