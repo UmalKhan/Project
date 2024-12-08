@@ -1,0 +1,1077 @@
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <string>
+#include <windows.h>
+#include <chrono>
+using namespace std;
+
+struct Node {
+    char id;
+    int weight;
+    Node* next;
+
+    Node(char i, int w) {
+        id = i;
+        weight = w;
+        next = nullptr;
+    }
+};
+
+struct Edge {
+    char src;
+    char dest;
+    int weight;
+    Edge* next;
+    int count;
+
+    Edge() {
+        count = 0;
+        next = nullptr;
+    }
+    Edge(char s, char d, int w) {
+        count = 0;
+        src = s;
+        dest = d;
+        weight = w;
+        next = nullptr;
+    }
+};
+
+struct Vehicle {
+    string id;
+    char start;
+    char end;
+    Vehicle* next;
+    Edge* path;
+    int priority;
+
+        Vehicle(string vid, char s, char e, int p) {
+            id = vid;
+            start = s;
+            end = e;
+            priority = p;
+            next = nullptr;
+            path = nullptr;
+        }
+        void add_path(Edge * path_add) {
+            Edge* temp = path;
+            if (!temp)
+                path = path_add;
+            else {
+                while (temp->next)
+                    temp = temp->next;
+                temp->next = path_add;
+            }
+        }
+        bool remove_first_path(char id) {
+            if (path) {
+                if (path->src == id) {
+                    Edge* temp = path;
+                    path = temp->next;
+                    if (path)
+                        ++path->count;
+                    delete temp;
+                    return true;
+                }
+            }
+            return false;
+        }
+    };
+
+    struct Vertex {
+        char id;
+        Node* adj_list;
+        Vertex* next;
+        Vertex* prev;
+        int distance;
+        bool visited;
+        int green_time;
+        Vertex* predecessor;
+        Vehicle* vehicles_in;
+        int total_vehicles;
+        int heuristic;
+
+        Vertex(char i) {
+            id = i;
+            adj_list = nullptr;
+            next = nullptr;
+            prev = nullptr;
+            distance = INT_MAX;
+            visited = false;
+            predecessor = nullptr;
+            vehicles_in = nullptr;
+            total_vehicles = 0;
+        }
+
+        Vertex(Vertex* to_copy) {
+            id = to_copy->id;
+            adj_list = to_copy->adj_list;
+            distance = to_copy->distance;
+            visited = to_copy->visited;
+            predecessor = to_copy->predecessor;
+            vehicles_in = to_copy->vehicles_in;
+            total_vehicles = to_copy->total_vehicles;
+            green_time = to_copy->green_time;
+            next = nullptr;
+        }
+
+        
+            void add_vehicle(string i, char start, char end, int p) {
+                Vehicle* add_v = new Vehicle(i, start, end, p);
+                Vehicle* temp = vehicles_in;
+                if (!temp)
+                    vehicles_in = add_v;
+                else {
+                    while (temp->next)
+                        temp = temp->next;
+                    temp->next = add_v;
+                }
+                ++total_vehicles;
+            }
+            void print_list() {
+                Node* temp = adj_list;
+                while (temp) {
+                    cout << temp->id << " ";
+                    temp = temp->next;
+                }
+                cout << endl;
+            }
+            void print_vehicles() {
+                Vehicle* temp = vehicles_in;
+                while (temp) {
+                    cout << temp->id << " ";
+                    temp = temp->next;
+                }
+                cout << endl;
+            }
+        };
+
+        struct queue {
+            Vertex* head;
+            Vertex* tail;
+            int max;
+
+            queue() {
+                head = nullptr;
+                tail = nullptr;
+                max = 0;
+            }
+            void enqueue(Vertex* vertex_add) {
+                Vertex* new_vertex = new Vertex(vertex_add);
+                if (!head) {
+                    head = new_vertex;
+                    tail = new_vertex;
+                    head->next = tail;
+                    tail->prev = head;
+                    max = new_vertex->total_vehicles;
+                }
+                else {
+                    if (new_vertex->total_vehicles > max) {
+                        new_vertex->next = head;
+                        head->prev = new_vertex;
+                        head = new_vertex;
+                        max = new_vertex->total_vehicles;
+                    }
+                    else {
+                        tail->next = new_vertex;
+                        new_vertex->prev = tail;
+                        tail = new_vertex;
+                    }
+                }
+            }
+            // change (i think only decrease) should depend on agr v less vehicles? for "less waiting time" for other intersections?
+            void increase_count(char id) {
+                Vertex* temp = head;
+                while (temp) {
+                    if (temp->id == id) {
+                        ++temp->total_vehicles;
+                        return;
+                    }
+                    temp = temp->next;
+                }
+            }
+            void check() {
+                cout << "check shuru" << endl;
+                print_queue();
+                // Vertex* temp = head;
+                // max = head->total_vehicles;
+                // while(temp) {
+                //     if (temp->total_vehicles > max) {
+                //         temp->next = head;
+                //         head = temp;
+                //         max = head->total_vehicles;
+                //     }
+                //     temp = temp->next;
+                // }
+                cout << "check" << endl;
+            }
+            // is ki call depends on our actual time? depends on hm simulate kesay kr rhe hain.
+            // if it is actual time so we only have to consider front/head of queue ka time.
+            // remove pehla path/edge of all- no. vehicles with that vertex as source. hmm.
+            Vertex* temp = head;
+            max = head->total_vehicles;
+            while (temp) {
+                if (temp->green_time <= 1 && temp->green_time > 10)
+                    temp->green_time -= 10;
+                if (temp->green_time < 20 && temp->total_vehicles > 1)
+                    temp->green_time += 10;
+                if (temp->total_vehicles > max) {
+                    head->next = temp->next;
+                    head->prev = temp->prev;
+                    temp->next = head;
+                    temp->prev = nullptr;
+                    head = temp;
+                    max = head->total_vehicles;
+                }
+                temp = temp->next;
+            }
+        }
+        void emergency_rerouting(Vehicle* e_path) {
+            Edge* temp_path = e_path->path;
+            while (temp_path->next) {
+                Vertex* to_add = find_intersection(temp_path->dest);
+                to_add->prev->next = to_add->next;
+                to_add->next->prev = to_add->prev;
+                to_add->next = head;
+                to_add->prev = nullptr;
+                head = to_add;
+                temp_path = temp_path->next;
+            }
+            Vertex* to_add = find_intersection(temp_path->dest);
+            to_add->prev->next = to_add->next;
+            to_add->next->prev = to_add->prev;
+            to_add->next = head;
+            head->prev = to_add;
+            to_add->prev = nullptr;
+            head = to_add;
+            to_add = find_intersection(temp_path->src);
+            to_add->prev->next = to_add->next;
+            to_add->next->prev = to_add->prev;
+            to_add->prev = nullptr;
+            to_add->next = head;
+            head->prev = to_add;
+            head = to_add;
+        }
+        Vertex* dequeue() {
+            if (head) {
+                Vertex* to_deq = head;
+                Vertex* to_deq = head;
+                head = to_deq->next;
+                // check();
+                head->prev = nullptr;
+                check();
+                cout << "queue now" << endl;
+                print_queue();
+                return to_deq;
+            }
+            return nullptr;
+            return nullptr;
+        }
+        Vertex* find_intersection(char i) {
+            Vertex* temp = head;
+            while (temp && temp->id != i)
+                temp = temp->next;
+            if (temp)
+                return temp;
+            return nullptr;
+        }
+        void print_queue() {
+            Vertex* temp = head;
+            while (temp) {
+                cout << temp->id << ": " << temp->green_time << "s" << " " << temp->total_vehicles << endl;
+                temp = temp->next;
+            }
+        }
+    };
+    class Hash_Queue
+    {
+        Vertex* arr[41];
+        int front;
+        int rear;
+
+
+    public:
+        Hash_Queue()
+        {
+            front = 0;
+            rear = 0;
+
+        }
+        void Enqueue(Vertex* v)
+        {
+            if ((rear + 1) % 41 == front)
+            {
+                cout << "Queue overflow" << endl;
+                return;
+            }
+            arr[rear] = v;
+            rear = (rear + 1) % 41;
+
+        }
+        Vertex* Dequeue()
+        {
+            if (isEmpty())
+            {
+                cout << "Queue underflow!!" << endl;
+                return NULL;
+            }
+
+            Vertex* v = arr[front];
+            front = (front + 1) % 41;
+            return v;
+        }
+        bool isEmpty()
+        {
+            return front == rear;
+        }
+    };
+
+    struct hash_table {
+        Edge* edges[41];
+        int count[41];
+        bool exists[41];
+        bool blocked[41];
+
+        hash_table() {
+            for (int i = 0; i < 41; i++) {
+                count[i] = 0;
+                exists[i] = false;
+                blocked[41] = false;
+            }
+        }
+        int get_hash(char src, char dest) {
+            return (src * 31 + dest) % 41;
+        }
+        void insert_edge(Edge* to_add) {
+            int hash_key = get_hash(to_add->src, to_add->dest);
+            int start = hash_key;
+            while (exists[hash_key]) {
+                hash_key = (hash_key + 1) % 41;
+                if (hash_key == start)
+                    return;
+            }
+            edges[hash_key] = to_add;
+            exists[hash_key] = true;
+        }
+        Edge* find_edge(char src, char dest) {
+            int key = get_hash(src, dest);
+            return edges[key];
+            Edge* found = edges[key];
+            if (found->src == src && found->dest == dest)
+                return found;
+            return nullptr;
+        }
+        void add_veh_to_edge(Edge* edge_to_add) {
+            int index = get_hash(edge_to_add->src, edge_to_add->dest);
+            ++count[index];
+
+        }
+        void change_road_status(char s, char d) {
+            blocked[get_hash(s, d)] = true;
+        }
+        int get_VehicleCount(char src, char dest)
+        {
+            int key = get_hash(src, dest);
+            if (!exists[key])
+            {
+                return 0;
+            }
+            return edges[key]->count;
+
+        }
+
+        bool Congestion(string path)//segments which are blocked from the path for too much vehicle
+        {
+            string key;
+            int count = 0;
+            const int THRESH = 4;
+            for (int i = 0; i < path.length() - 1; i++)
+            {
+                char src = path[i];
+                char dest = path[i + 1];
+                key = path[i] + path[i + 1];
+                count = count + get_VehicleCount(src, dest);
+            }
+            if (count >= THRESH)
+            {
+                return true;
+            }
+            return false;
+        }
+
+        void print_table() {
+            for (int i = 0; i < 41; i++) {
+                cout << i << ": " << edges[i]->src << " " << edges[i]->dest << endl;
+            }
+        }
+    };
+
+    struct Graph {
+        Vertex* vertices;
+        Vehicle* vehicles;
+        Vehicle* em_vehicles;
+        int total_vertices;
+        queue green_queue;
+        hash_table table;
+
+        Graph() {
+            vehicles = nullptr;
+            vertices = nullptr;
+            em_vehicles = nullptr;
+            total_vertices = 0;
+        }
+
+        void add_vertex(char id) {
+            if (!vertex_exists(id)) {
+                Vertex* new_vertex = new Vertex(id);
+                Vertex* temp = vertices;
+                if (!temp)
+                    vertices = new_vertex;
+                else {
+                    while (temp->next)
+                        temp = temp->next;
+                    temp->next = new_vertex;
+                }
+                ++total_vertices;
+            }
+        }
+
+        void add_vehicle(string id, char start, char end) {
+            Vehicle* new_vehicle = new Vehicle(id, start, end);
+            void add_vehicle(string id, char start, char end, int prior) {
+                Vehicle* new_vehicle = new Vehicle(id, start, end, prior);
+                Vehicle* temp = vehicles;
+                if (!temp)
+                    vehicles = new_vehicle;
+                else {
+                    while (temp->next)
+                        temp = temp->next;
+                    temp->next = new_vehicle;
+                }
+                Vertex* src = find_vertex(start);
+                src->add_vehicle(id, start, end);
+                src->add_vehicle(id, start, end, prior);
+            }
+            void add_emergency_vehicle(string id, char start, char end, int prior) {
+                Vehicle* new_vehicle = new Vehicle(id, start, end, prior);
+                Vehicle* temp = em_vehicles;
+                if (!temp)
+                    em_vehicles = new_vehicle;
+                else {
+                    while (temp->next)
+                        temp = temp->next;
+                    temp->next = new_vehicle;
+                }
+                Vertex* src = find_vertex(start);
+                src->add_vehicle(id, start, end, prior);
+            }
+            bool vertex_exists(char id) {
+                Vertex* temp = vertices;
+                while (temp) {
+                    if (temp->id == id)
+                        return true;
+                    temp = temp->next;
+                }
+                return false;
+            }
+
+            void add_edge(char src, char dest, int weight) {
+                add_vertex(src);
+                add_vertex(dest);
+
+                Vertex* src_vertex = find_vertex(src);
+                if (src_vertex) {
+                    Node* new_node = new Node(dest, weight);
+                    Node* temp = src_vertex->adj_list;
+                    if (!temp)
+                        src_vertex->adj_list = new_node;
+                    else {
+                        while (temp->next)
+                            temp = temp->next;
+                        temp->next = new_node;
+                    }
+                }
+                Edge* add_edge = new Edge(src, dest, weight);
+                table.insert_edge(add_edge);
+            }
+
+            void initialize_queue() {
+                Vertex* temp = vertices;
+                while (temp) {
+                    green_queue.enqueue(temp);
+                    temp = temp->next;
+                }
+            }
+
+            Vertex* find_vertex(char id) {
+                Vertex* temp = vertices;
+                while (temp) {
+                    if (temp->id == id) {
+                        return temp;
+                    }
+                    temp = temp->next;
+                }
+                return nullptr;
+            }
+
+            void print_vehicles() {
+                Vehicle* temp = vehicles;
+                while (temp) {
+                    cout << temp->id << " from " << temp->start << " to " << temp->end << endl;
+                    temp = temp->next;
+                }
+            }
+
+            void print_graph() {
+                Vertex* temp = vertices;
+                while (temp) {
+                    cout << temp->id;;
+                    Node* adj = temp->adj_list;
+                    while (adj) {
+                        cout << " -> " << adj->id << "(" << adj->weight << ")";
+                        adj = adj->next;
+                    }
+                    cout << endl;
+                    cout << "Vehicles at this vertex: ";
+                    Vehicle* vertex_v = temp->vehicles_in;
+                    while (vertex_v) {
+                        cout << vertex_v->id << " ";
+                        vertex_v = vertex_v->next;
+                    }
+                    cout << endl << "Green time: " << temp->green_time << endl;
+                    temp = temp->next;
+                }
+            }
+
+            void set_time(char id, int greenTime) {
+                Vertex* vertex = find_vertex(id);
+                if (vertex)
+                    vertex->green_time = greenTime;
+                else
+                    cout << "Vertex " << id << " not found!\n";
+            }
+
+            void print_path(Vertex * dest_vertex, Vehicle * veh) {
+                if (!dest_vertex->predecessor) {
+                    cout << dest_vertex->id << " ";
+                    return;
+                }
+                print_path(dest_vertex->predecessor, veh);
+                cout << dest_vertex->id << " ";
+                Edge* add_path = table.find_edge(dest_vertex->id, dest_vertex->predecessor->id);
+                veh->add_path(add_path);
+            }
+
+            void dijkstra(char source, char dest, Vehicle * veh) {
+                veh->path = nullptr;
+                Vertex* temp = vertices;
+                while (temp) {
+                    temp->distance = INT_MAX;
+                    temp->visited = false;
+                    temp->predecessor = nullptr;
+                    temp = temp->next;
+                }
+
+                Vertex* src_vertex = find_vertex(source);
+                if (!src_vertex) {
+                    cout << "Source vertex not found!" << endl;
+                    return;
+                }
+
+                src_vertex->distance = 0;
+
+                while (true) {
+                    Vertex* current = nullptr;
+                    temp = vertices;
+                    while (temp) {
+                        if (!temp->visited && (current == nullptr || temp->distance < current->distance))
+                            current = temp;
+                        temp = temp->next;
+                    }
+
+                    if (!current || current->distance == INT_MAX)
+                        break;
+
+                    current->visited = true;
+                    Node* adj = current->adj_list;
+                    while (adj) {
+                        Vertex* neighbor = find_vertex(adj->id);
+                        if (neighbor && !neighbor->visited) {
+                            int new_dist = current->distance + adj->weight;
+                            if (new_dist < neighbor->distance) {
+                                neighbor->distance = new_dist;
+                                neighbor->predecessor = current;
+                            }
+                        }
+                        adj = adj->next;
+                    }
+                }
+
+                Vertex* dest_vertex = find_vertex(dest);
+                if (!dest_vertex || dest_vertex->distance == INT_MAX) {
+                    cout << "No path found from " << source << " to " << dest << endl;
+                    return;
+                }
+
+                cout << "Shortest distance from " << source << " to " << dest << ": " << dest_vertex->distance << endl;
+
+                cout << "Path: ";
+                Vertex* current = dest_vertex;
+                while (current && current->predecessor) {
+                    Edge* edge = table.find_edge(current->predecessor->id, current->id);
+                    if (edge) {
+                        veh->add_path(new Edge(edge->src, edge->dest, edge->weight));
+                    }
+                    current = current->predecessor;
+                }
+
+                reverse_vehicle_path(veh);
+                table.add_veh_to_edge(veh->path);
+                print_vehicle_path(veh);
+            }
+            void reverse_vehicle_path(Vehicle * veh) {
+                Edge* prev = nullptr;
+                Edge* current = veh->path;
+                Edge* next = nullptr;
+
+                while (current) {
+                    next = current->next;
+                    current->next = prev;
+                    prev = current;
+                    current = next;
+                }
+
+                veh->path = prev;
+            }
+            void print_vehicle_path(Vehicle * veh) {
+                Edge* current = veh->path;
+                while (current) {
+                    cout << current->src << " -> " << current->dest << " (" << current->weight << ")";
+                    if (current->next) cout << " -> ";
+                    current = current->next;
+                }
+                cout << endl;
+            }
+            int heuristic(char current, char goal) {
+                Edge* edge_d = table.find_edge(current, goal);
+                int edge_distance;
+                if (edge_d)
+                    edge_distance = edge_d->weight;
+                else
+                    return INT_MAX;
+
+                Vertex* current_vertex = find_vertex(current);
+                int congestion_penalty = current_vertex ? current_vertex->total_vehicles : 0;
+
+                return edge_distance + current_vertex->total_vehicles;
+            }
+            void a_star(char source, char dest, Vehicle * veh) {
+                Vertex* temp = vertices;
+                veh->path = nullptr;
+                while (temp) {
+                    temp->distance = 0;
+                    temp->heuristic = heuristic(source, temp->id);
+                    temp->visited = false;
+                    temp->predecessor = nullptr;
+                    temp = temp->next;
+                }
+                Vertex* src_vertex = find_vertex(source);
+                if (!src_vertex) {
+                    cout << "Source vertex not found!" << endl;
+                    return;
+                }
+                src_vertex->distance = 0;
+                src_vertex->heuristic = 0;
+                // src_vertex->heuristic = heuristic(source, dest);  // Initial heuristic
+                while (true) {
+                    Vertex* current = nullptr;
+                    temp = vertices;
+                    while (temp) {
+                        int f_score = temp->distance + temp->heuristic;
+                        int current_f_score = current ? current->distance + current->heuristic : INT_MAX;
+                        if (!temp->visited && (current == nullptr || f_score < current_f_score)) {
+                            current = temp;
+                        }
+                        temp = temp->next;
+                    }
+                    if (!current || current->distance == INT_MAX)
+                        break;
+                    if (current->id == dest)
+                        break;
+                    current->visited = true;
+                    Node* adj = current->adj_list;
+                    while (adj) {
+                        Vertex* neighbor = find_vertex(adj->id);
+                        if (neighbor && !neighbor->visited) {
+                            int tentative_dist = current->distance + adj->weight;
+                            if (tentative_dist > neighbor->distance) {
+                                neighbor->distance = tentative_dist;
+                                neighbor->heuristic = heuristic(neighbor->id, dest);
+                                neighbor->predecessor = current;
+                            }
+                        }
+                        adj = adj->next;
+                    }
+                }
+                Vertex* dest_vertex = find_vertex(dest);
+                if (!dest_vertex || dest_vertex->distance == INT_MAX) {
+                    cout << "No path found from " << source << " to " << dest << endl;
+                    return;
+                }
+                cout << "Shortest distance from " << source << " to " << dest << ": " << dest_vertex->distance << endl;
+                // cout << "Path: ";
+
+                Vertex* current = dest_vertex;
+                while (current && current->predecessor) {
+                    Edge* edge = table.find_edge(current->predecessor->id, current->id);
+                    if (edge) {
+                        veh->add_path(new Edge(edge->src, edge->dest, edge->weight));
+                    }
+                    current = current->predecessor;
+                }
+                reverse_vehicle_path(veh);
+                green_queue.emergency_rerouting(veh);
+                table.add_veh_to_edge(veh->path);
+                print_vehicle_path(veh);
+            }
+            void emergency_path(Vehicle * e_veh) {
+                a_star(e_veh->start, e_veh->end, e_veh);
+            }
+            void find_path_for_all() {
+                cout << "Paths found for all vehicles" << endl;
+                Vehicle* temp = vehicles;
+                cout << temp->id << " ";
+                while (temp) {
+                    cout << temp->id << " ";
+                    dijkstra(temp->start, temp->end, temp);
+                    // a_star(temp->start, temp->end, temp);
+                    temp = temp->next;
+                    cout << endl;
+                }
+            }
+            void green_light() {
+                Vehicle* current = vehicles;
+                Vertex* removed = green_queue.dequeue();
+                cout << "Intersection " << removed->id << " is opened/ green light" << endl;
+                while (current) {
+                    if (current->remove_first_path(removed->id))
+                        if (current->path)
+                            cout << current->id << " ka new path starting from " << current->path->src << " " << current->path->dest << endl;
+                    if (current->path) {
+                        green_queue.increase_count(current->path->dest);
+                        cout << current->id << " has now current edge: " << current->path->src << " " << current->path->dest << endl;
+                    }
+                    else {
+                        cout << current->id << " has completed it's path " << endl;
+                    }
+                    current = current->next;
+                }
+                if (removed->id == em_vehicles->end) {
+                    cout << "Emergency Vehicle has been rerouted" << endl;
+                    Vehicle* temp = em_vehicles;
+                    em_vehicles = em_vehicles->next;
+                    delete temp;
+                }
+                delete removed;
+            }
+            void print_adj_list() {
+                Vertex* temp = vertices;
+                while (temp) {
+                    cout << temp->id << " -> ";
+                    temp->print_list();
+                    temp = temp->next;
+                }
+            }
+            void print_vehicles_at_vertex() {
+                Vertex* temp = vertices;
+                while (temp) {
+                    cout << temp->id << ": ";
+                    temp->print_vehicles();
+                    temp = temp->next;
+                }
+            }
+            void BFS(char start, char end)
+            {
+                Graph g;
+                Vertex* startP = g.find_vertex(start);
+                Vertex* endP = g.find_vertex(end);
+                if (!startP || !endP)
+                {
+                    cout << "invalid start or end point" << endl;
+                    return;
+                }
+                Vertex* temp = g.vertices;
+                while (temp)
+                {
+                    temp->visited = false;
+                    temp->distance = INT_MAX;
+                    temp->predecessor = nullptr;
+                    temp = temp->next;
+                }
+
+                Hash_Queue queue;
+
+                startP->distance = 0;
+                startP->visited = true;
+                queue.Enqueue(startP);
+
+                while (!queue.isEmpty())
+                {
+                    Vertex* current = queue.Dequeue();
+                    Node* adj = current->adj_list;
+
+                    while (adj)
+                    {
+                        Vertex* neighbor = g.find_vertex(adj->id);
+                        if (neighbor && !neighbor->visited)
+                        {
+                            string edge = string(1, current->id) + string(1, adj->id);
+                            if (!table.Congestion(edge))
+                            {
+                                neighbor->visited = true;
+                                neighbor->distance = current->distance + adj->weight;
+                                neighbor->predecessor = current;
+                                queue.Enqueue(neighbor);
+                                if (neighbor == endP)
+                                {
+                                    break;
+                                }
+                            }
+                            adj = adj->next;
+                        }
+                    }
+                    if (!endP->visited)
+                    {
+                        cout << "NO valid path found form " << start << " to " << end << endl;
+                    }
+                    else
+                    {
+                        cout << "Shortest Path from " << start << " to " << end << " : " << endP->distance << endl;
+                        cout << "Path: ";
+                        Vertex* path = endP;
+                        string result = "";
+                        while (path)
+                        {
+                            result = path->id + (result.empty() ? "" : "->") + result;
+                            path = path->predecessor;
+                        }
+
+                        cout << result << endl;
+                    }
+                }
+            }
+            // void dijkstra(char source) {
+            //     Vertex* src_vertex = find_vertex(source);
+            //     if (!src_vertex) {
+            //         cout << "Source vertex not found!" << endl;
+            //         return;
+            //     }
+            //     src_vertex->distance = 0;
+            //     while (true) {
+            //         Vertex* current = nullptr;
+            //         Vertex* temp = vertices;
+            //         while (temp) {
+            //             if (!temp->visited && (current == nullptr || temp->distance < current->distance)) {
+            //                 current = temp;
+            //             }
+            //             temp = temp->next;
+            //         }
+            //         if (!current || current->distance == INT_MAX) 
+            //             break;
+            //         current->visited = true;
+            //         Node* adj = current->adj_list;
+            //         while (adj) {
+            //             Vertex* neighbor = find_vertex(adj->id);
+            //             if (neighbor && !neighbor->visited) {
+            //                 int new_dist = current->distance + adj->weight;
+            //                 if (new_dist < neighbor->distance) {
+            //                     neighbor->distance = new_dist;
+            //                 }
+            //             }
+            //             adj = adj->next;
+            //         }
+            //     }
+            //     cout << "Shortest distances from vertex " << source << ":\n";
+            //     Vertex* temp = vertices;
+            //     while (temp) {
+            //         cout << "To " << temp->id << ": ";
+            //         if (temp->distance == INT_MAX) {
+            //             cout << "INF\n";
+            //         } else {
+            //             cout << temp->distance << "\n";
+            //         }
+            //         temp = temp->next;
+            //     }
+            // }
+
+            ~Graph() {
+                Vertex* temp = vertices;
+                while (temp) {
+                    Node* adj = temp->adj_list;
+                    while (adj) {
+                        Node* toDelete = adj;
+                        adj = adj->next;
+                        delete toDelete;
+                    }
+                    Vertex* to_delete = temp;
+                    temp = temp->next;
+                    delete to_delete;
+                }
+                // Vehicle* temp_v = vehicles;
+                while (temp) {
+                    Vertex* to_delete = temp;
+                    temp = temp->next;
+                    delete to_delete;
+                }
+            }
+        };
+
+        void read_emergency_vehicles(Graph& graph, const string& filename) {
+            ifstream file(filename);
+            if (!file.is_open()) {
+                cout << "Error opening file: " << filename << endl;
+                return;
+            }
+            string line, vehicleID, priorityLevel;
+            char startIntersection, endIntersection;
+            getline(file, line);
+            while (getline(file, line)) {
+                if (line.empty()) {
+                    continue;
+                }
+                stringstream ss(line);
+                if (line.empty() || line.find_first_not_of(",") == string::npos)
+                    continue;
+                getline(ss, vehicleID, ',');
+                ss >> startIntersection; ss.ignore(1, ',');
+                ss >> endIntersection; ss.ignore(1, ',');
+                getline(ss, priorityLevel, ',');
+                int priority;
+                if (priorityLevel == "Medium")
+                    priority = 1;
+                else
+                    priority = 2;
+                graph.add_emergency_vehicle(vehicleID, startIntersection, endIntersection, priority);
+            }
+            file.close();
+        }
+        void read_vehicles(Graph& graph, const string& filename) {
+            ifstream file(filename);
+            if (!file.is_open()) {
+                cout << "Error opening file: " << filename << endl;
+                return;
+            }
+
+            string line, vehicleID;
+            char startIntersection, endIntersection;
+
+            getline(file, line);
+
+            while (getline(file, line)) {
+                stringstream ss(line);
+
+                getline(ss, vehicleID, ',');
+                ss >> startIntersection; ss.ignore(1, ',');
+                ss >> endIntersection;
+
+                graph.add_vehicle(vehicleID, startIntersection, endIntersection);
+                graph.add_vehicle(vehicleID, startIntersection, endIntersection, 0);
+            }
+
+            file.close();
+        }
+
+
+        void read_signals(Graph& graph, const string& filename) {
+            ifstream file(filename);
+            if (!file.is_open()) {
+                cout << "Error opening file: " << filename << endl;
+                return;
+            }
+
+            string line, intersection;
+            int greenTime;
+
+            getline(file, line);
+
+            while (getline(file, line)) {
+                stringstream ss(line);
+                getline(ss, intersection, ',');
+                ss >> greenTime;
+
+                if (!intersection.empty()) {
+                    graph.set_time(intersection[0], greenTime);
+                }
+            }
+
+            file.close();
+        }
+
+
+        void read_file(Graph& g, const string& filename) {
+            ifstream file(filename);
+            if (!file.is_open()) {
+                cout << "Error opening file: " << filename << endl;
+                return;
+            }
+
+            string line, intersection1, intersection2;
+            int travelTime;
+
+            getline(file, line);
+
+            while (getline(file, line)) {
+                stringstream ss(line);
+                getline(ss, intersection1, ',');
+                getline(ss, intersection2, ',');
+                ss >> travelTime;
+
+                g.add_edge(intersection1[0], intersection2[0], travelTime);
+            }
+
+            file.close();
+        }
+
+        int main() {
+            Graph g;
+
+            read_file(g, "C:/Users/hp/Desktop/uni sht/data struct/project/Project/road_network.csv");
+            read_signals(g, "C:/Users/hp/Desktop/uni sht/data struct/project/Project/traffic_signals.csv");
+            read_vehicles(g, "C:/Users/hp/Desktop/uni sht/data struct/project/Project/vehicles.csv");
+            read_emergency_vehicles(g, "C:/Users/hp/Desktop/uni sht/data struct/project/Project/emergency_vehicles.csv");
+            // read_file(g, "road_network.csv");
+            // read_signals(g, "traffic_signals.csv");
+            // read_vehicles(g, "vehicles.csv");
+            // g.print_graph();
+            // g.print_vehicles();
+            // g.dijkstra('A', 'F');
+            // g.print_vehicles_at_vertex();
+
+            g.find_path_for_all();
+            // g.find_path_for_all();
+            g.initialize_queue();
+            // g.green_queue.print_queue();
+            // g.table.print_table();
+            g.green_light();
+            // g.green_queue.check();
+            // g.green_light();
+            // g.print_adj_list();
+            cout << "Emergency Vehicle rerouting menu me khud hi select kr dena" << endl;
+            cout << "Rerouting " << g.em_vehicles->id << " from " << g.em_vehicles->start << " to " << g.em_vehicles->end << endl;
+            g.emergency_path(g.em_vehicles);
+            g.green_queue.print_queue();
+            // auto interval = chrono::seconds(g.green_queue.head->green_time);
+            // // cout << "Green time for current intersection: " << interval.count() << endl;
+            // auto start_time = chrono::steady_clock::now();
+            // while (true) {
+            //     auto current_time = chrono::steady_clock::now();
+            //     if (current_time - start_time >= interval) {
+            //         start_time = current_time;
+            //         g.green_light();
+            //         interval = chrono::seconds(g.green_queue.head->green_time);
+            //         cout << "Green time for current intersection: " << interval.count() << "s" << endl;
+            //     }
+            // }
+            return 0;
+        }
