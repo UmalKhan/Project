@@ -61,6 +61,7 @@ The **Smart Traffic System Stimulator** is a project that recreates urban traffi
 
 * If the user enters '3', Blocked Roads are displayed:
 ### Blocked Roads:
+![blocked roads](https://github.com/user-attachments/assets/bac38e35-dd59-4030-ba73-78d5fedb726f)
 
 * If the user enters '4', Vehicles are displayed:
 ### Vehicle display:
@@ -68,7 +69,7 @@ The **Smart Traffic System Stimulator** is a project that recreates urban traffi
 
 * If the user enters '5', Vehicles routes are displayed:
 ### Vehicle Routes:
-![vehicle_route](https://github.com/user-attachments/assets/7f9da265-4f8c-47b4-bfd9-b7857c398ce6)
+![vehicle_route](https://github.com/user-attachments/assets/4e3114e3-4f7f-4cdb-8900-9e3665c3053c)
 
 * If the user enters '6', Emergency Vehicle Routing are displayed:
 ### Emergency Vehicle Routing:
@@ -76,6 +77,11 @@ The **Smart Traffic System Stimulator** is a project that recreates urban traffi
 
 * If the user enters '7', Block Roads are displayed:
 ### Blocked Roads:
+![ooption 7](https://github.com/user-attachments/assets/48189de9-8617-4b7a-9cfb-bb4cd8e64ef8)
+
+* If the user enters '8', it Simulates Vehicle Routing:
+### Stimulate Vehicle Routing:
+![option 8](https://github.com/user-attachments/assets/9b4624c4-c7e2-4013-869d-018b84344f80)
 
 
 * If the user enters '8', it Simulates Vehicle Routing:
