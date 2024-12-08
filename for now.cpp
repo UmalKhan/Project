@@ -550,12 +550,14 @@ struct Graph {
             current->visited = true;
             Node* adj = current->adj_list;
             while (adj) {
-                // adding condition for blocked roads
-                if (table.blocked[table.get_hash(current->id, adj->id)]) {
-                    // cout << "Road blocked: " << current->id << " to " << adj->id << endl;
-                    adj = adj->next;
-                    continue;
-                }
+                 // adding condition for blocked roads
+                if (table.blocked[table.get_hash(current->id, adj->id)])
+                    if (table.edges[table.get_hash(current->id, adj->id)]->src == current->id && table.edges[table.get_hash(current->id, adj->id)]->dest == adj->id)
+                    {
+                         //cout << "Road blocked: " << current->id << " to " << adj->id << endl;
+                         adj = adj->next;
+                         continue;
+                    }
                 Vertex* neighbor = find_vertex(adj->id);
                 if (neighbor && !neighbor->visited) {
                     int new_dist = current->distance + adj->weight;
