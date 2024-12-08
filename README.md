@@ -76,15 +76,16 @@ The **Smart Traffic System Stimulator** is a project that recreates urban traffi
 ![vehicle_routing](https://github.com/user-attachments/assets/f4ddc1b2-1e89-4953-a119-e5bba51ccccd)
 
 * If the user enters '7', Block Roads are displayed:
-### Blocked Roads:
+### Block a Road:
 ![ooption 7](https://github.com/user-attachments/assets/48189de9-8617-4b7a-9cfb-bb4cd8e64ef8)
 
 * If the user enters '8', it Simulates Vehicle Routing:
-### Stimulate Vehicle Routing:
+### Unblock a Road:
 ![option 8](https://github.com/user-attachments/assets/9b4624c4-c7e2-4013-869d-018b84344f80)
 
 
-* If the user enters '8', it Simulates Vehicle Routing:
+* If the user enters '9', it Simulates Vehicle Routing:
+### Stimulate Vehicle Routing:
 ### Vehicle Routing:
 ![vehicle_routing_queue](https://github.com/user-attachments/assets/88d7aa3e-7a6b-4f0b-a652-9644f8cbc06c)
 
